@@ -1,10 +1,14 @@
 #include "advancedswipeview.h"
+#include <QDebug>
 
 AdvancedSwipeView::AdvancedSwipeView(QQuickItem* parent)
-    : QQuickItem(parent), m_currentIndex(0)
+    : QQuickItem(parent), m_orientation(Qt::Horizontal), m_currentIndex(0)
 {
     setClip(true);
+    setAcceptedMouseButtons(Qt::AllButtons);
 }
+
+// ------------------------------------------------------
 
 int AdvancedSwipeView::count() const
 {
@@ -31,9 +35,15 @@ QQuickItem* AdvancedSwipeView::currentItem() const
     return m_content.at(currentIndex());
 }
 
+Qt::Orientation AdvancedSwipeView::orientation() const
+{
+    return m_orientation;
+}
+
+// ------------------------------------------------------
+
 void AdvancedSwipeView::setCurrentIndex(int currentIndex)
 {
-    assert(currentIndex >= 0 && currentIndex < count());
     if (m_currentIndex == currentIndex)
         return;
 
@@ -41,11 +51,21 @@ void AdvancedSwipeView::setCurrentIndex(int currentIndex)
     emit currentIndexChanged(m_currentIndex);
 }
 
-void AdvancedSwipeView::componentComplete()
+void AdvancedSwipeView::setOrientation(Qt::Orientation orientation)
 {
-    QQuickItem::componentComplete();
-    assert(height() > 0 && width() > 0);
+    assert(orientation == Qt::Vertical || orientation == Qt::Horizontal);
+    if (m_orientation == orientation)
+        return;
 
+    m_orientation = orientation;
+    emit orientationChanged(m_orientation);
+}
+
+// ------------------------------------------------------
+
+void AdvancedSwipeView::componentComplete()
+{    
+    QQuickItem::componentComplete();
     if (!children().empty()) {
         for (auto const& child : children()) {
             QQuickItem* item = qobject_cast<QQuickItem*>(child);
@@ -53,16 +73,54 @@ void AdvancedSwipeView::componentComplete()
                 m_content << item;
             }
         }
-
-        // TODO: handle visibility and position of objects
     }
 }
 
-void AdvancedSwipeView::snapOneItem()
+void AdvancedSwipeView::mousePressEvent(QMouseEvent* event)
 {
-    for (int i = 0; i < currentIndex(); i++) {
-        m_content[i]->setVisible(false);
+    QQuickItem::mousePressEvent(event);
+    qDebug() << "ok";
+}
+
+void AdvancedSwipeView::mouseMoveEvent(QMouseEvent* event)
+{
+    QQuickItem::mouseMoveEvent(event);
+    qDebug() << "move";
+}
+
+void AdvancedSwipeView::mouseReleaseEvent(QMouseEvent* event)
+{
+    QQuickItem::mouseReleaseEvent(event);
+    qDebug() << "event release";
+}
+
+// ------------------------------------------------------
+
+void AdvancedSwipeView::snapOneItemInstantly()
+{
+    // choice of parameter snap
+    using PropertyRead = qreal (QQuickItem::*)() const;
+    using PropertyWrite = void (QQuickItem::*)(qreal);
+    PropertyRead length;
+    PropertyWrite setterPos;
+    if (Qt::Horizontal == orientation()) {
+        setterPos = &QQuickItem::setX;
+        length = &QQuickItem::width;
+    }
+    else if (Qt::Vertical == orientation()) {
+        setterPos = &QQuickItem::setY;
+        length = &QQuickItem::height;
     }
 
-    int p = 0;
+    // snap
+    qreal p = 0;
+    for (int i = currentIndex() - 1; i >= 0; i--) {
+        p -= (m_content[i]->*length)();
+        (m_content[i]->*setterPos)(p);
+    }
+    p = 0;
+    for (int i = currentIndex(); i < count(); i++) {
+        (m_content[i]->*setterPos)(p);
+         p += (m_content[i]->*length)();
+    }
 }

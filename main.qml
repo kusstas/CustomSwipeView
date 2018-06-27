@@ -12,31 +12,26 @@ ApplicationWindow {
 
     AdvancedSwipeView {
         id: view
-        anchors.centerIn: parent
         width: 300
         height: 300
+        currentIndex: 1
 
         Rectangle {
-            id: child
             color: "red"
-            width: 300
-            height: 300
+            width: parent.width
+            height: parent.height
         }
 
-
-        Component.onCompleted: {
-            console.log(count)
-            console.log(currentIndex)
-            console.log(currentItem)
+        Rectangle {
+            color: "green"
+            width: parent.width
+            height: parent.height
         }
-    }
 
-    MouseArea {
-        anchors.fill: view
-        onMouseXChanged: {
-            child.x = mouseX
-            console.log(mouseX)
+        Rectangle {
+            color: "blue"
+            width: parent.width
+            height: parent.height
         }
     }
-
 }
