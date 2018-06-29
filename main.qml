@@ -12,26 +12,40 @@ ApplicationWindow {
 
     AdvancedSwipeView {
         id: view
-        width: 300
-        height: 300
-        currentIndex: 1
+        //        width: 300
+        //        height: 300
+        anchors.fill: parent
+        currentIndex: 0
+        loop: true
+        focus: true
+        //orientation: Qt.Vertical
 
         Rectangle {
             color: "red"
-            width: parent.width
-            height: parent.height
         }
 
         Rectangle {
             color: "green"
-            width: parent.width
-            height: parent.height
         }
 
         Rectangle {
             color: "blue"
-            width: parent.width
-            height: parent.height
+        }
+
+        Rectangle {
+            color: "yellow"
+        }
+
+        Keys.onTabPressed: {
+            currentIndex = 3
+        }
+
+        onSeizedChanged: {
+            console.log("seized: ", seized)
+        }
+
+        onCurrentIndexChanged: {
+            console.log(currentIndex)
         }
     }
 }
