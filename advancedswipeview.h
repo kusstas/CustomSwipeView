@@ -15,6 +15,7 @@ class AdvancedSwipeView : public QQuickItem
     Q_PROPERTY(qreal thresholdSwitch READ thresholdSwitch WRITE setThresholdSwitch NOTIFY thresholdSwitchChanged)
     Q_PROPERTY(qreal minVelocitySwitch READ minVelocitySwitch WRITE setMinVelocitySwitch NOTIFY minVelocitySwitchChanged)
     Q_PROPERTY(qreal maxPullingOutOnEnd READ maxPullingOutOnEnd WRITE setMaxPullingOutOnEnd NOTIFY maxPullingOutOnEndChanged)
+    Q_PROPERTY(int durationSnap READ durationSnap WRITE setDurationSnap NOTIFY durationSnapChanged)
 
     // status
     Q_PROPERTY(bool seized READ seized NOTIFY seizedChanged)
@@ -37,6 +38,7 @@ public:
     qreal thresholdSwitch() const;
     qreal minVelocitySwitch() const;
     qreal maxPullingOutOnEnd() const;
+    int durationSnap() const;
 
     bool seized() const;
     int count() const;
@@ -53,6 +55,7 @@ public slots:
     void setThresholdSwitch(qreal thresholdSwitch);
     void setMinVelocitySwitch(qreal minVelocitySwitch);
     void setMaxPullingOutOnEnd(qreal maxPullingOutOnEnd);
+    void setDurationSnap(int durationSnap);
     void setCurrentIndex(int currentIndex);
 
 private slots:
@@ -64,10 +67,12 @@ signals:
     void orientationChanged(Qt::Orientation orientation);
     void loopChanged(bool loop);
     void thresholdSwitchChanged(qreal thresholdSwitch);
-    void maxPullingOutOnEndChanged(qreal maxPullingOutOnEnd);
     void minVelocitySwitchChanged(qreal minVelocitySwitch);
+    void maxPullingOutOnEndChanged(qreal maxPullingOutOnEnd);
+    void durationSnapChanged(int durationSnap);
     void seizedChanged(bool seized);
     void currentIndexChanged(int currentIndex);
+
 
 protected:
     void componentComplete() override;
@@ -81,12 +86,15 @@ private:
     Qt::Orientation m_orientation;
     bool m_loop;
 
-    // control swipe
+    qreal m_speedReturn;
+    int m_directReturn;
+    int m_distanceReturn;
     int m_visibleCurrentIndex;
     qreal m_visibleRelitivePos;
     qreal m_thresholdSwitch;
     qreal m_minVelocitySwitch;
     qreal m_maxPullingOutOnEnd;
+    int m_durationSnap;
     bool m_seized;
     QTimer m_timer;
 
@@ -96,12 +104,16 @@ private:
 
     // mouse variables
     QPointF m_posPrevMouse;
-    QPointF m_midleVelMouse;
     QPointF m_velMouse;
 
     // custom types
     using SetterPos = void (QQuickItem::*) (qreal);
     using GetterPos = qreal (QQuickItem::*) () const;
+    using GetterLength = qreal (QQuickItem::*) () const;
+
+    GetterPos m_getterPos;
+    SetterPos m_setterPos;
+    GetterLength m_getterLength;
 
     // helper functions
     int shiftIndex(int index, int shift) const;
@@ -115,8 +127,9 @@ private:
     QQuickItem* visiblePrevItem() const;
     QQuickItem* visibleNextItem() const;
 
-    void limitVisibleCurrentItem(qreal length, SetterPos setterPos);
-    void showVisibleCurrentItem(qreal length, SetterPos setterPos, GetterPos getterPos);
+    int computeDistanceReturn() const;
+    void limitVisibleCurrentItem();
+    void showVisibleCurrentItem();
     void shiftVisibleContent(QPointF const& offset);
 };
 

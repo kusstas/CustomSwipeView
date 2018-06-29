@@ -1,11 +1,15 @@
 #include "advancedswipeview.h"
+#include <cmath>
 #include <QDebug>
 
 AdvancedSwipeView::AdvancedSwipeView(QQuickItem* parent)
-    : QQuickItem(parent), m_orientation(Qt::Horizontal), m_loop(false), m_visibleRelitivePos(0.0f),
-      m_thresholdSwitch(0.5f), m_minVelocitySwitch(8.0f),
-      m_maxPullingOutOnEnd(0.25f), m_seized(false),
-      m_currentIndex(0)
+    : QQuickItem(parent), m_orientation(Qt::Horizontal), m_loop(false),
+      m_directReturn(0), m_distanceReturn(0), m_visibleRelitivePos(0.0f),
+      m_thresholdSwitch(0.5f), m_minVelocitySwitch(5.0f),
+      m_maxPullingOutOnEnd(0.25f), m_durationSnap(50),
+      m_seized(false), m_currentIndex(0),
+      m_getterPos(&QQuickItem::x), m_setterPos(&QQuickItem::setX),
+      m_getterLength(&QQuickItem::width)
 {
     setClip(true);
     setAcceptedMouseButtons(Qt::LeftButton);
@@ -42,6 +46,11 @@ qreal AdvancedSwipeView::minVelocitySwitch() const
 qreal AdvancedSwipeView::maxPullingOutOnEnd() const
 {
     return m_maxPullingOutOnEnd;
+}
+
+int AdvancedSwipeView::durationSnap() const
+{
+    return m_durationSnap;
 }
 
 // ------------------------------------------------------
@@ -97,8 +106,30 @@ void AdvancedSwipeView::setOrientation(Qt::Orientation orientation)
         return;
     }
 
+    SetterPos setterPosNull = nullptr;
+    if (orientation == Qt::Horizontal) {
+        setterPosNull = &QQuickItem::setY;
+        m_setterPos = &QQuickItem::setX;
+        m_getterPos = &QQuickItem::x;
+        m_getterLength = &QQuickItem::width;
+    }
+    else if (orientation == Qt::Vertical) {
+        setterPosNull = &QQuickItem::setX;
+        m_setterPos = &QQuickItem::setY;
+        m_getterPos = &QQuickItem::y;
+        m_getterLength = &QQuickItem::height;
+    }
+
     m_orientation = orientation;
     emit orientationChanged(m_orientation);
+
+    if (isComponentComplete()){
+        // reshow content
+        for (auto item : m_content) {
+            (item->*setterPosNull)(0);
+        }
+        showVisibleCurrentItem();
+    }
 }
 
 void AdvancedSwipeView::setLoop(bool loop)
@@ -107,8 +138,24 @@ void AdvancedSwipeView::setLoop(bool loop)
         return;
     }
 
+    auto nItem = nextItem();
+    auto pItem = prevItem();
+
     m_loop = loop;
     emit loopChanged(m_loop);
+
+    if (isComponentComplete()) {
+        // limit content
+        if (nullptr == nextItem() && nullptr != nItem && m_visibleRelitivePos < 0.0f) {
+            nItem->setVisible(false);
+            m_visibleRelitivePos = 0.0f;
+        }
+        else if (nullptr == prevItem() && nullptr != pItem  && m_visibleRelitivePos > 0.0f) {
+            pItem->setVisible(false);
+            m_visibleRelitivePos = 0.0f;
+        }
+        showVisibleCurrentItem();
+    }
 }
 
 void AdvancedSwipeView::setThresholdSwitch(qreal thresholdSwitch)
@@ -144,6 +191,16 @@ void AdvancedSwipeView::setMaxPullingOutOnEnd(qreal maxPullingOutOnEnd)
     emit maxPullingOutOnEndChanged(m_maxPullingOutOnEnd);
 }
 
+void AdvancedSwipeView::setDurationSnap(int durationSnap)
+{
+    assert(durationSnap >= 0);
+    if (m_durationSnap == durationSnap)
+        return;
+
+    m_durationSnap = durationSnap;
+    emit durationSnapChanged(m_durationSnap);
+}
+
 void AdvancedSwipeView::setCurrentIndex(int currentIndex)
 {
     if (m_currentIndex == currentIndex) {
@@ -165,10 +222,8 @@ void AdvancedSwipeView::onWidthChanged()
     for (auto item : m_content) {
         item->setWidth(width());
     }
-    if (orientation() == Qt::Horizontal) {
-        // save ratio
-        currentItem()->setX(m_visibleRelitivePos * width());
-        showVisibleCurrentItem(width(), &QQuickItem::setX, &QQuickItem::x);
+    if (orientation() == Qt::Horizontal && isComponentComplete()) {
+        showVisibleCurrentItem();
     }
 }
 
@@ -177,10 +232,8 @@ void AdvancedSwipeView::onHeightChanged()
     for (auto item : m_content) {
         item->setHeight(height());
     }
-    if (orientation() == Qt::Vertical) {
-        // save ratio
-        currentItem()->setY(m_visibleRelitivePos * height());
-        showVisibleCurrentItem(height(), &QQuickItem::setY, &QQuickItem::y);
+    if (orientation() == Qt::Vertical && isComponentComplete()) {
+        showVisibleCurrentItem();
     }
 }
 
@@ -223,8 +276,6 @@ void AdvancedSwipeView::mouseMoveEvent(QMouseEvent* event)
 
     // compute velocity
     m_velMouse = locPos - m_posPrevMouse;
-    m_midleVelMouse += m_velMouse;
-    m_midleVelMouse /= 2.0f;
 
     // offset
     QPointF offset = locPos - m_posPrevMouse;
@@ -236,9 +287,25 @@ void AdvancedSwipeView::mouseMoveEvent(QMouseEvent* event)
 
 void AdvancedSwipeView::mouseReleaseEvent(QMouseEvent* event)
 {
+    qreal velMouse;
+    if (orientation() == Qt::Horizontal) {
+        velMouse = m_velMouse.x();
+    }
+    else if (orientation() == Qt::Vertical) {
+        velMouse = m_velMouse.y();
+    }
+
+    if (m_visibleCurrentIndex == currentIndex()) {
+        if (velMouse >= minVelocitySwitch() && m_visibleRelitivePos > 0.0f && nullptr != prevItem()) {
+            qDebug() << "prev";
+        }
+        else if (velMouse <= -minVelocitySwitch() && m_visibleRelitivePos < 0.0f && nullptr != nextItem()) {
+            qDebug() << "next";
+        }
+    }
+
     setSeized(false);
     m_velMouse = QPoint(0, 0);
-    m_midleVelMouse = QPoint(0, 0);
 }
 
 void AdvancedSwipeView::setSeized(bool seized)
@@ -318,40 +385,61 @@ QQuickItem* AdvancedSwipeView::visibleNextItem() const
 
 // ------------------------------------------------------
 
-void AdvancedSwipeView::limitVisibleCurrentItem(qreal length, SetterPos setterPos)
+int AdvancedSwipeView::computeDistanceReturn() const
 {
-    auto cItem = visibleCurrentItem();
+    int d = currentIndex() - m_visibleCurrentIndex;
+    if (loop() && 0 != d) {
+        if (currentIndex() < m_visibleCurrentIndex) {
+            int t = currentIndex() + count() - m_visibleCurrentIndex;
+            if(abs(d) > t) {
+                d = t;
+            }
+        }
+        else {
+            int t = m_visibleCurrentIndex + count() - currentIndex();
+            if(abs(d) > t) {
+                d = -t;
+            }
+        }
+    }
+    return d;
+}
+
+void AdvancedSwipeView::limitVisibleCurrentItem()
+{
     auto pItem = visiblePrevItem();
     auto nItem = visibleNextItem();
     if (m_visibleRelitivePos > maxPullingOutOnEnd() && nullptr == pItem) {
         m_visibleRelitivePos = maxPullingOutOnEnd();
-        (cItem->*setterPos)(m_visibleRelitivePos * length);
     }
     else if (m_visibleRelitivePos < -maxPullingOutOnEnd() && nullptr == nItem) {
         m_visibleRelitivePos = -maxPullingOutOnEnd();
-        (cItem->*setterPos)(m_visibleRelitivePos * length);
     }
 }
 
-void AdvancedSwipeView::showVisibleCurrentItem(qreal length, SetterPos setterPos, GetterPos getterPos)
+void AdvancedSwipeView::showVisibleCurrentItem()
 {
     auto cItem = visibleCurrentItem();
     auto pItem = visiblePrevItem();
     auto nItem = visibleNextItem();
-    qreal currentItemCoord = (cItem->*getterPos)();
-    if (currentItemCoord < 0) { // show next and hide prev, if they exists
+    qreal length = (this->*m_getterLength)();
+
+    cItem->setVisible(true);
+    (cItem->*m_setterPos)(m_visibleRelitivePos * length);
+
+    if (m_visibleRelitivePos < 0.0f) { // show next and hide prev, if they exists
         if (nullptr != nItem) {
             nItem->setVisible(true);
-            (nItem->*setterPos)(currentItemCoord + length);
+            (nItem->*m_setterPos)((m_visibleRelitivePos + 1.0f) * length);
         }
         if (nullptr != pItem && pItem != nItem) {
             pItem->setVisible(false);
         }
     }
-    else if (currentItemCoord > 0) { // show prev and hide next, if they exists
+    else if (m_visibleRelitivePos > 0.0f) { // show prev and hide next, if they exists
         if (nullptr != pItem) {
             pItem->setVisible(true);
-            (pItem->*setterPos)(currentItemCoord - length);
+            (pItem->*m_setterPos)((m_visibleRelitivePos - 1.0f) * length);
         }
         if (nullptr != nItem && nItem != pItem) {
             nItem->setVisible(false);
@@ -369,23 +457,15 @@ void AdvancedSwipeView::showVisibleCurrentItem(qreal length, SetterPos setterPos
 
 void AdvancedSwipeView::shiftVisibleContent(QPointF const& offset)
 {
-    qreal length = 0;
+    qreal length = (this->*m_getterLength)();
     qreal offsetAxis = 0;
-    SetterPos setterPos = nullptr;
-    GetterPos getterPos = nullptr;
 
     // chose parameters by orientation
     if (orientation() == Qt::Horizontal) {
-        length = width();
         offsetAxis = offset.x();
-        setterPos = &QQuickItem::setX;
-        getterPos = &QQuickItem::x;
     }
     else if (orientation() == Qt::Vertical) {
-        length = height();
         offsetAxis = offset.y();
-        setterPos = &QQuickItem::setY;
-        getterPos = &QQuickItem::y;
     }
 
     // limit offset
@@ -397,16 +477,16 @@ void AdvancedSwipeView::shiftVisibleContent(QPointF const& offset)
     }
 
     // set visible current item
-    (visibleCurrentItem()->*setterPos)((visibleCurrentItem()->*getterPos)() + offsetAxis);
+    m_visibleRelitivePos += offsetAxis / length;
     if (m_visibleRelitivePos > thresholdSwitch() && nullptr != visiblePrevItem()) {
         m_visibleCurrentIndex = computePrevIndex(m_visibleCurrentIndex);
+        m_visibleRelitivePos += -1.0f;
     }
     else if (m_visibleRelitivePos < -thresholdSwitch() && nullptr != visibleNextItem()) {
         m_visibleCurrentIndex = computeNextIndex(m_visibleCurrentIndex);
+        m_visibleRelitivePos += 1.0f;
     }
-    m_visibleRelitivePos = (visibleCurrentItem()->*getterPos)() / length;
-
     // show current item
-    limitVisibleCurrentItem(length, setterPos);
-    showVisibleCurrentItem(length, setterPos, getterPos);
+    limitVisibleCurrentItem();
+    showVisibleCurrentItem();
 }

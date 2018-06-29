@@ -37,7 +37,15 @@ ApplicationWindow {
         }
 
         Keys.onTabPressed: {
-            currentIndex = 3
+            if (orientation == Qt.Horizontal)
+                orientation = Qt.Vertical
+            else
+                orientation = Qt.Horizontal
+            //currentIndex = 3
+        }
+
+        Keys.onSpacePressed: {
+            loop = !loop
         }
 
         onSeizedChanged: {
