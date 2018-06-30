@@ -4,6 +4,9 @@
 #include <QQuickItem>
 #include <QTimer>
 
+namespace qml {
+namespace custom {
+
 class AdvancedSwipeView : public QQuickItem
 {
     Q_OBJECT
@@ -132,5 +135,8 @@ private:
     void shiftVisibleContent(QPointF const& offset);
     void runReturn();
 };
+
+}
+}
 
 #endif // ADVANCEDSWIPEVIEW_H

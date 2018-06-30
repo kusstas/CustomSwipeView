@@ -8,7 +8,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QGuiApplication app(argc, argv);
 
-    qmlRegisterType<AdvancedSwipeView>("Custom.Controls", 1, 0, "AdvancedSwipeView");
+    qmlRegisterType<qml::custom::AdvancedSwipeView>("Custom.Controls", 1, 0, "AdvancedSwipeView");
 
     QQmlApplicationEngine engine;
     engine.load(QUrl(QStringLiteral("qrc:/main.qml")));

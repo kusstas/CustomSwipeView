@@ -1,7 +1,6 @@
 import QtQuick 2.11
 import QtQuick.Window 2.11
 import QtQuick.Controls 2.2
-
 import Custom.Controls 1.0
 
 ApplicationWindow {

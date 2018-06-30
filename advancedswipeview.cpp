@@ -2,6 +2,8 @@
 #include <cmath>
 #include <QDebug>
 
+using namespace qml::custom;
+
 AdvancedSwipeView::AdvancedSwipeView(QQuickItem* parent)
     : QQuickItem(parent), m_orientation(Qt::Horizontal), m_loop(false),
       m_distanceReturn(0.0f), m_visibleRelitivePos(0.0f),
