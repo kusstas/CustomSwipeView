@@ -73,7 +73,6 @@ signals:
     void seizedChanged(bool seized);
     void currentIndexChanged(int currentIndex);
 
-
 protected:
     void componentComplete() override;
     void mousePressEvent(QMouseEvent* event) override;
@@ -82,6 +81,11 @@ protected:
     void setSeized(bool seized);
 
 private:
+    // custom types
+    using SetterPos = void (QQuickItem::*) (qreal);
+    using GetterPos = qreal (QQuickItem::*) () const;
+    using GetterLength = qreal (QQuickItem::*) () const;
+
     // paramaters of swipe
     Qt::Orientation m_orientation;
     bool m_loop;
@@ -104,11 +108,6 @@ private:
     // mouse variables
     QPointF m_posPrevMouse;
     QPointF m_velMouse;
-
-    // custom types
-    using SetterPos = void (QQuickItem::*) (qreal);
-    using GetterPos = qreal (QQuickItem::*) () const;
-    using GetterLength = qreal (QQuickItem::*) () const;
 
     GetterPos m_getterPos;
     SetterPos m_setterPos;

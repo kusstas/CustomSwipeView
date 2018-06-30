@@ -4,7 +4,7 @@
 
 AdvancedSwipeView::AdvancedSwipeView(QQuickItem* parent)
     : QQuickItem(parent), m_orientation(Qt::Horizontal), m_loop(false),
-      m_distanceReturn(0), m_visibleRelitivePos(0.0f),
+      m_distanceReturn(0.0f), m_visibleRelitivePos(0.0f),
       m_thresholdSwitch(0.5f), m_minVelocitySwitch(5.0f),
       m_maxPullingOutOnEnd(0.25f), m_durationSnap(100),
       m_seized(false), m_currentIndex(0),
@@ -127,7 +127,7 @@ void AdvancedSwipeView::setOrientation(Qt::Orientation orientation)
     if (isComponentComplete()){
         // reshow content
         for (auto item : m_content) {
-            (item->*setterPosNull)(0);
+            (item->*setterPosNull)(0.0f);
         }
         showVisibleCurrentItem();
     }
@@ -151,7 +151,7 @@ void AdvancedSwipeView::setLoop(bool loop)
             nItem->setVisible(false);
             m_visibleRelitivePos = 0.0f;
         }
-        else if (nullptr == prevItem() && nullptr != pItem  && m_visibleRelitivePos > 0.0f) {
+        else if (nullptr == prevItem() && nullptr != pItem && m_visibleRelitivePos > 0.0f) {
             pItem->setVisible(false);
             m_visibleRelitivePos = 0.0f;
         }
@@ -249,6 +249,7 @@ void AdvancedSwipeView::onTimerOut()
     }
     m_distanceReturn -= distance;
 
+    // shift invisible items
     if (distance < -1.0f || distance > 1.0f) {
         int shift = static_cast<int>(distance);
         auto pItem = prevItem();
@@ -264,15 +265,14 @@ void AdvancedSwipeView::onTimerOut()
         m_visibleCurrentIndex = shiftIndex(m_visibleCurrentIndex, shift);
         distance -= shift;
     }
+
     m_visibleRelitivePos += distance;
     checkOutOfThreshold();
-
     if (m_visibleCurrentIndex == currentIndex() && qFuzzyIsNull(m_distanceReturn)) {
         m_timer.stop();
         m_distanceReturn = 0.0f;
         m_visibleRelitivePos = 0.0f;
     }
-
     showVisibleCurrentItem();
 }
 
@@ -282,7 +282,7 @@ void AdvancedSwipeView::componentComplete()
 {    
     QQuickItem::componentComplete();
     if (!children().empty()) {
-        for (auto const& child : children()) {
+        for (auto child : children()) {
             // add only QQuickItem from children
             QQuickItem* item = qobject_cast<QQuickItem*>(child);
             if (nullptr != item) {
@@ -309,10 +309,8 @@ void AdvancedSwipeView::mousePressEvent(QMouseEvent* event)
 void AdvancedSwipeView::mouseMoveEvent(QMouseEvent* event)
 {
     QPointF locPos = event->localPos();
-
     // compute velocity
     m_velMouse = locPos - m_posPrevMouse;
-
     // offset
     QPointF offset = locPos - m_posPrevMouse;
     m_posPrevMouse = locPos;
@@ -342,7 +340,7 @@ void AdvancedSwipeView::mouseReleaseEvent(QMouseEvent* event)
     }
 
     setSeized(false);
-    m_velMouse = QPoint(0.0f, 0.0f);
+    m_velMouse = QPoint(0, 0);
     runReturn();
 }
 
