@@ -86,10 +86,9 @@ private:
     Qt::Orientation m_orientation;
     bool m_loop;
 
-    qreal m_speedReturn;
-    int m_directReturn;
-    int m_distanceReturn;
     int m_visibleCurrentIndex;
+    qreal m_speedReturn;
+    qreal m_distanceReturn;
     qreal m_visibleRelitivePos;
     qreal m_thresholdSwitch;
     qreal m_minVelocitySwitch;
@@ -127,10 +126,12 @@ private:
     QQuickItem* visiblePrevItem() const;
     QQuickItem* visibleNextItem() const;
 
-    int computeDistanceReturn() const;
+    void computeDistanceReturn();
     void limitVisibleCurrentItem();
+    void checkOutOfThreshold();
     void showVisibleCurrentItem();
     void shiftVisibleContent(QPointF const& offset);
+    void runReturn();
 };
 
 #endif // ADVANCEDSWIPEVIEW_H

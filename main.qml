@@ -12,8 +12,6 @@ ApplicationWindow {
 
     AdvancedSwipeView {
         id: view
-        //        width: 300
-        //        height: 300
         anchors.fill: parent
         currentIndex: 0
         loop: true
@@ -34,26 +32,6 @@ ApplicationWindow {
 
         Rectangle {
             color: "yellow"
-        }
-
-        Keys.onTabPressed: {
-            if (orientation == Qt.Horizontal)
-                orientation = Qt.Vertical
-            else
-                orientation = Qt.Horizontal
-            //currentIndex = 3
-        }
-
-        Keys.onSpacePressed: {
-            loop = !loop
-        }
-
-        onSeizedChanged: {
-            console.log("seized: ", seized)
-        }
-
-        onCurrentIndexChanged: {
-            console.log(currentIndex)
         }
     }
 }

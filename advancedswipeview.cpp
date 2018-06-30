@@ -4,15 +4,16 @@
 
 AdvancedSwipeView::AdvancedSwipeView(QQuickItem* parent)
     : QQuickItem(parent), m_orientation(Qt::Horizontal), m_loop(false),
-      m_directReturn(0), m_distanceReturn(0), m_visibleRelitivePos(0.0f),
+      m_distanceReturn(0), m_visibleRelitivePos(0.0f),
       m_thresholdSwitch(0.5f), m_minVelocitySwitch(5.0f),
-      m_maxPullingOutOnEnd(0.25f), m_durationSnap(50),
+      m_maxPullingOutOnEnd(0.25f), m_durationSnap(100),
       m_seized(false), m_currentIndex(0),
       m_getterPos(&QQuickItem::x), m_setterPos(&QQuickItem::setX),
       m_getterLength(&QQuickItem::width)
 {
     setClip(true);
     setAcceptedMouseButtons(Qt::LeftButton);
+    m_timer.setInterval(10);
 
     connect(this, &QQuickItem::widthChanged, this, &AdvancedSwipeView::onWidthChanged);
     connect(this, &QQuickItem::heightChanged, this, &AdvancedSwipeView::onHeightChanged);
@@ -84,7 +85,7 @@ int AdvancedSwipeView::currentIndex() const
 
 QQuickItem* AdvancedSwipeView::currentItem() const
 {
-    return count() > 0 ? m_content.at(currentIndex()) : nullptr;
+    return m_content.at(currentIndex());
 }
 
 QQuickItem* AdvancedSwipeView::prevItem() const
@@ -210,8 +211,11 @@ void AdvancedSwipeView::setCurrentIndex(int currentIndex)
     if (isComponentComplete()) {
         assert(indexValid(currentIndex));
     }
-
     m_currentIndex = currentIndex;
+    if (!seized()) {
+        runReturn();
+    }
+
     emit currentIndexChanged(m_currentIndex);
 }
 
@@ -239,7 +243,37 @@ void AdvancedSwipeView::onHeightChanged()
 
 void AdvancedSwipeView::onTimerOut()
 {
+    qreal distance = m_speedReturn * m_timer.interval();
+    if (fabs(distance) > fabs(m_distanceReturn)) {
+        distance = m_distanceReturn;
+    }
+    m_distanceReturn -= distance;
 
+    if (distance < -1.0f || distance > 1.0f) {
+        int shift = static_cast<int>(distance);
+        auto pItem = prevItem();
+        auto nItem = nextItem();
+        if (nullptr != pItem) {
+            pItem->setVisible(false);
+        }
+        if (nullptr != nItem) {
+            nItem->setVisible(false);
+        }
+        visibleCurrentItem()->setVisible(false);
+
+        m_visibleCurrentIndex = shiftIndex(m_visibleCurrentIndex, shift);
+        distance -= shift;
+    }
+    m_visibleRelitivePos += distance;
+    checkOutOfThreshold();
+
+    if (m_visibleCurrentIndex == currentIndex() && qFuzzyIsNull(m_distanceReturn)) {
+        m_timer.stop();
+        m_distanceReturn = 0.0f;
+        m_visibleRelitivePos = 0.0f;
+    }
+
+    showVisibleCurrentItem();
 }
 
 // ------------------------------------------------------
@@ -268,6 +302,8 @@ void AdvancedSwipeView::mousePressEvent(QMouseEvent* event)
 {
     setSeized(true);
     m_posPrevMouse = event->localPos();
+    setCurrentIndex(m_visibleCurrentIndex);
+    m_timer.stop();
 }
 
 void AdvancedSwipeView::mouseMoveEvent(QMouseEvent* event)
@@ -287,6 +323,7 @@ void AdvancedSwipeView::mouseMoveEvent(QMouseEvent* event)
 
 void AdvancedSwipeView::mouseReleaseEvent(QMouseEvent* event)
 {
+    QQuickItem::mouseReleaseEvent(event);
     qreal velMouse;
     if (orientation() == Qt::Horizontal) {
         velMouse = m_velMouse.x();
@@ -297,15 +334,16 @@ void AdvancedSwipeView::mouseReleaseEvent(QMouseEvent* event)
 
     if (m_visibleCurrentIndex == currentIndex()) {
         if (velMouse >= minVelocitySwitch() && m_visibleRelitivePos > 0.0f && nullptr != prevItem()) {
-            qDebug() << "prev";
+            setCurrentIndex(prevIndex());
         }
         else if (velMouse <= -minVelocitySwitch() && m_visibleRelitivePos < 0.0f && nullptr != nextItem()) {
-            qDebug() << "next";
+            setCurrentIndex(nextIndex());
         }
     }
 
     setSeized(false);
-    m_velMouse = QPoint(0, 0);
+    m_velMouse = QPoint(0.0f, 0.0f);
+    runReturn();
 }
 
 void AdvancedSwipeView::setSeized(bool seized)
@@ -385,24 +423,24 @@ QQuickItem* AdvancedSwipeView::visibleNextItem() const
 
 // ------------------------------------------------------
 
-int AdvancedSwipeView::computeDistanceReturn() const
+void AdvancedSwipeView::computeDistanceReturn()
 {
-    int d = currentIndex() - m_visibleCurrentIndex;
-    if (loop() && 0 != d) {
-        if (currentIndex() < m_visibleCurrentIndex) {
-            int t = currentIndex() + count() - m_visibleCurrentIndex;
-            if(abs(d) > t) {
-                d = t;
+    int d = m_visibleCurrentIndex - currentIndex();
+    if (loop()) {
+        if (d > 0) {
+            int n_d = m_visibleCurrentIndex - count() - currentIndex();
+            if (-n_d < d) {
+                d = n_d;
             }
         }
-        else {
-            int t = m_visibleCurrentIndex + count() - currentIndex();
-            if(abs(d) > t) {
-                d = -t;
+        else if (d < 0) {
+            int n_d = m_visibleCurrentIndex + count() - currentIndex();
+            if (n_d < -d) {
+                d = n_d;
             }
         }
     }
-    return d;
+    m_distanceReturn = d - m_visibleRelitivePos;
 }
 
 void AdvancedSwipeView::limitVisibleCurrentItem()
@@ -414,6 +452,18 @@ void AdvancedSwipeView::limitVisibleCurrentItem()
     }
     else if (m_visibleRelitivePos < -maxPullingOutOnEnd() && nullptr == nItem) {
         m_visibleRelitivePos = -maxPullingOutOnEnd();
+    }
+}
+
+void AdvancedSwipeView::checkOutOfThreshold()
+{
+    if (m_visibleRelitivePos > thresholdSwitch() && nullptr != visiblePrevItem()) {
+        m_visibleCurrentIndex = computePrevIndex(m_visibleCurrentIndex);
+        m_visibleRelitivePos += -1.0f;
+    }
+    else if (m_visibleRelitivePos < -thresholdSwitch() && nullptr != visibleNextItem()) {
+        m_visibleCurrentIndex = computeNextIndex(m_visibleCurrentIndex);
+        m_visibleRelitivePos += 1.0f;
     }
 }
 
@@ -475,18 +525,19 @@ void AdvancedSwipeView::shiftVisibleContent(QPointF const& offset)
     else if (offsetAxis < -length) {
         offsetAxis = -length;
     }
-
-    // set visible current item
     m_visibleRelitivePos += offsetAxis / length;
-    if (m_visibleRelitivePos > thresholdSwitch() && nullptr != visiblePrevItem()) {
-        m_visibleCurrentIndex = computePrevIndex(m_visibleCurrentIndex);
-        m_visibleRelitivePos += -1.0f;
-    }
-    else if (m_visibleRelitivePos < -thresholdSwitch() && nullptr != visibleNextItem()) {
-        m_visibleCurrentIndex = computeNextIndex(m_visibleCurrentIndex);
-        m_visibleRelitivePos += 1.0f;
-    }
+
     // show current item
+    checkOutOfThreshold();
     limitVisibleCurrentItem();
     showVisibleCurrentItem();
+}
+
+void AdvancedSwipeView::runReturn()
+{
+    computeDistanceReturn();
+    if (!qFuzzyIsNull(m_distanceReturn)) {
+        m_speedReturn = m_distanceReturn / m_durationSnap;
+        m_timer.start();
+    }
 }
