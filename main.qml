@@ -32,5 +32,7 @@ ApplicationWindow {
         Rectangle {
             color: "yellow"
         }
+
+        onSnap: console.log("snap")
     }
 }

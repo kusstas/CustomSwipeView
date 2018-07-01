@@ -74,6 +74,7 @@ signals:
     void maxPullingOutOnEndChanged(qreal maxPullingOutOnEnd);
     void durationSnapChanged(int durationSnap);
     void seizedChanged(bool seized);
+    void snap();
     void currentIndexChanged(int currentIndex);
 
 protected:

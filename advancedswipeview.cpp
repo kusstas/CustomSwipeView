@@ -274,6 +274,7 @@ void AdvancedSwipeView::onTimerOut()
         m_timer.stop();
         m_distanceReturn = 0.0f;
         m_visibleRelitivePos = 0.0f;
+        emit snap();
     }
     showVisibleCurrentItem();
 }
