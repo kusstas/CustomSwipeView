@@ -60,6 +60,8 @@ public slots:
     void setMaxPullingOutOnEnd(qreal maxPullingOutOnEnd);
     void setDurationSnap(int durationSnap);
     void setCurrentIndex(int currentIndex);
+    bool prev();
+    bool next();
 
 private slots:
     void onWidthChanged();

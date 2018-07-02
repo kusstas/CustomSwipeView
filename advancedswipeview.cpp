@@ -1,5 +1,6 @@
 #include "advancedswipeview.h"
 #include <cmath>
+#include <cassert>
 #include <QDebug>
 
 using namespace qml::custom;
@@ -221,6 +222,24 @@ void AdvancedSwipeView::setCurrentIndex(int currentIndex)
     emit currentIndexChanged(m_currentIndex);
 }
 
+bool AdvancedSwipeView::prev()
+{
+    if (nullptr == prevItem()) {
+        return false;
+    }
+    setCurrentIndex(prevIndex());
+    return true;
+}
+
+bool AdvancedSwipeView::next()
+{
+    if (nullptr == nextItem()) {
+        return false;
+    }
+    setCurrentIndex(nextIndex());
+    return true;
+}
+
 // ------------------------------------------------------
 
 void AdvancedSwipeView::onWidthChanged()
@@ -290,7 +309,7 @@ void AdvancedSwipeView::componentComplete()
             QQuickItem* item = qobject_cast<QQuickItem*>(child);
             if (nullptr != item) {
                 m_content << item;
-                item->setSize(size());
+                item->setSize(QSize(width(), height()));
                 item->setVisible(false);
             }
         }
